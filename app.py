@@ -3,6 +3,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import gensim.downloader as api
@@ -120,6 +122,23 @@ WORD_SETS = {
 }
 
 
+def _auto_cluster(vecs):
+    """Pick the best k via silhouette score and return group labels."""
+    n = len(vecs)
+    max_k = min(6, n - 1)
+    if max_k < 2:
+        return ["cluster_0"] * n
+
+    best_score, best_labels = -1, None
+    for k in range(2, max_k + 1):
+        labels = KMeans(n_clusters=k, random_state=42, n_init=10).fit_predict(vecs)
+        score = silhouette_score(vecs, labels)
+        if score > best_score:
+            best_score, best_labels = score, labels
+
+    return [f"cluster_{l}" for l in best_labels]
+
+
 def _assign_colors(groups):
     """Map unique group names to distinct colours."""
     unique = list(dict.fromkeys(groups))  # preserve order, deduplicate
@@ -183,9 +202,9 @@ def visualize(words_text, model_choice, selected_set):
     perplexity = min(30, len(words) - 1)
     tsne_2d = TSNE(n_components=2, perplexity=perplexity, random_state=42).fit_transform(vecs)
 
-    # Colours — use each word as its own group when no groups are defined
+    # Colours — auto-cluster custom words; use predefined groups for presets
     if groups is None:
-        groups = words
+        groups = _auto_cluster(np.array(vecs))
     colors, color_map = _assign_colors(groups)
 
     # Plot
