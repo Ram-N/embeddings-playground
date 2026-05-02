@@ -278,7 +278,7 @@ with gr.Blocks(title="Embedding Playground") as demo:
             word_input = gr.Textbox(label="Enter a word", value="tiger")
             vec_output = gr.Textbox(label="Vector (first 10 dims)")
             neighbors_output = gr.Textbox(label="Closest words")
-            btn = gr.Button("Explore")
+            btn = gr.Button("Explore", variant="primary")
 
             def fill_word(preset):
                 return WORD_PRESETS[preset] if preset != "Custom" else gr.update()
@@ -327,7 +327,7 @@ end up near each other in vector space.
             c_in = gr.Textbox(label="C (new starting point)", value=_default_c)
             analogy_vec = gr.Textbox(label="Result vector (first 10 dims)")
             analogy_out = gr.Textbox(label="Closest words")
-            btn2 = gr.Button("Solve Analogy")
+            btn2 = gr.Button("Solve Analogy", variant="primary")
 
             def fill_analogy(preset):
                 if preset == "Custom":
@@ -351,7 +351,7 @@ end up near each other in vector space.
             s1 = gr.Textbox(label="Sentence 1", value=_default_s1)
             s2 = gr.Textbox(label="Sentence 2", value=_default_s2)
             sim_output = gr.Textbox(label="Similarity")
-            btn3 = gr.Button("Compare")
+            btn3 = gr.Button("Compare", variant="primary")
 
             def fill_sentences(preset):
                 if preset == "Custom":
@@ -379,7 +379,7 @@ end up near each other in vector space.
                 label="Custom words (comma separated — only used when 'Custom' is selected above)",
                 placeholder="e.g. moon, star, sun, cloud, rain"
             )
-            btn4 = gr.Button("Plot")
+            btn4 = gr.Button("Plot", variant="primary")
             plot_output = gr.Plot()
 
             set_dropdown.change(
