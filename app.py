@@ -95,6 +95,34 @@ def sentence_similarity(s1, s2, model_choice):
     return f"Similarity: {sim:.3f}{note}"
 
 
+# ---------- Presets ----------
+
+WORD_PRESETS = {
+    "tiger":   "tiger",
+    "biryani": "biryani",
+    "doctor":  "doctor",
+    "dharma":  "dharma",
+    "cricket": "cricket",
+    "Custom":  None,
+}
+
+ANALOGY_PRESETS = {
+    "Countries → Capitals  (india : delhi :: france : ?)": ("india",  "delhi",  "france"),
+    "Gender  (man : king :: woman : ?)":                   ("man",    "king",   "woman"),
+    "Institutions  (school : teacher :: hospital : ?)":    ("school", "teacher","hospital"),
+    "Nature  (day : sun :: night : ?)":                    ("day",    "sun",    "night"),
+    "Custom": None,
+}
+
+SENTENCE_PRESETS = {
+    "Similar meaning":               ("I love eating biryani",  "I enjoy having dosa"),
+    "Negation — tricky for GloVe":   ("I am happy",             "I am not happy"),
+    "Same word, different meaning":  ("The bat flew at night",  "He swung the bat"),
+    "Unrelated":                     ("The train is very fast", "My grandmother makes great chai"),
+    "Custom": None,
+}
+
+
 # ---------- 4. VISUALIZATION ----------
 
 WORD_SETS = {
@@ -243,10 +271,19 @@ with gr.Blocks(title="Embedding Playground") as demo:
         # --- TAB 1 ---
         with gr.Tab("Word Explorer"):
             gr.Markdown("Enter a word to see its vector and closest neighbours.")
-            word_input = gr.Textbox(label="Enter a word")
+            word_preset = gr.Dropdown(
+                choices=list(WORD_PRESETS.keys()), value="tiger",
+                label="Try a preset word, or choose Custom to type your own"
+            )
+            word_input = gr.Textbox(label="Enter a word", value="tiger")
             vec_output = gr.Textbox(label="Vector (first 10 dims)")
             neighbors_output = gr.Textbox(label="Closest words")
             btn = gr.Button("Explore")
+
+            def fill_word(preset):
+                return WORD_PRESETS[preset] if preset != "Custom" else gr.update()
+
+            word_preset.change(fill_word, inputs=word_preset, outputs=word_input)
             btn.click(word_explorer, inputs=[word_input, model_choice],
                       outputs=[vec_output, neighbors_output])
 
@@ -254,22 +291,50 @@ with gr.Blocks(title="Embedding Playground") as demo:
         with gr.Tab("Analogies"):
             gr.Markdown("### A is to B as C is to ?")
             gr.Markdown("Vector arithmetic: **B − A + C** → find the closest word")
-            a_in = gr.Textbox(label="A (starting point)")
-            b_in = gr.Textbox(label="B (related to A)")
-            c_in = gr.Textbox(label="C (new starting point)")
+            analogy_preset = gr.Dropdown(
+                choices=list(ANALOGY_PRESETS.keys()),
+                value=list(ANALOGY_PRESETS.keys())[0],
+                label="Try a preset, or choose Custom to type your own"
+            )
+            _default_a, _default_b, _default_c = ANALOGY_PRESETS[list(ANALOGY_PRESETS.keys())[0]]
+            a_in = gr.Textbox(label="A (starting point)", value=_default_a)
+            b_in = gr.Textbox(label="B (related to A)", value=_default_b)
+            c_in = gr.Textbox(label="C (new starting point)", value=_default_c)
             analogy_vec = gr.Textbox(label="Result vector (first 10 dims)")
             analogy_out = gr.Textbox(label="Closest words")
             btn2 = gr.Button("Solve Analogy")
+
+            def fill_analogy(preset):
+                if preset == "Custom":
+                    return gr.update(), gr.update(), gr.update()
+                a, b, c = ANALOGY_PRESETS[preset]
+                return a, b, c
+
+            analogy_preset.change(fill_analogy, inputs=analogy_preset, outputs=[a_in, b_in, c_in])
             btn2.click(analogy, inputs=[a_in, b_in, c_in, model_choice],
                        outputs=[analogy_vec, analogy_out])
 
         # --- TAB 3 ---
         with gr.Tab("Sentence Similarity"):
             gr.Markdown("Compare two sentences. Score ranges from 0 (unrelated) to 1 (identical meaning).")
-            s1 = gr.Textbox(label="Sentence 1")
-            s2 = gr.Textbox(label="Sentence 2")
+            sent_preset = gr.Dropdown(
+                choices=list(SENTENCE_PRESETS.keys()),
+                value="Similar meaning",
+                label="Try a preset pair, or choose Custom to type your own"
+            )
+            _default_s1, _default_s2 = SENTENCE_PRESETS["Similar meaning"]
+            s1 = gr.Textbox(label="Sentence 1", value=_default_s1)
+            s2 = gr.Textbox(label="Sentence 2", value=_default_s2)
             sim_output = gr.Textbox(label="Similarity")
             btn3 = gr.Button("Compare")
+
+            def fill_sentences(preset):
+                if preset == "Custom":
+                    return gr.update(), gr.update()
+                s1v, s2v = SENTENCE_PRESETS[preset]
+                return s1v, s2v
+
+            sent_preset.change(fill_sentences, inputs=sent_preset, outputs=[s1, s2])
             btn3.click(sentence_similarity, inputs=[s1, s2, model_choice],
                        outputs=sim_output)
 
