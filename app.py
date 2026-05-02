@@ -183,12 +183,10 @@ def visualize(words_text, model_choice, selected_set):
     perplexity = min(30, len(words) - 1)
     tsne_2d = TSNE(n_components=2, perplexity=perplexity, random_state=42).fit_transform(vecs)
 
-    # Colours
-    if groups is not None:
-        colors, color_map = _assign_colors(groups)
-    else:
-        colors = ["steelblue"] * len(words)
-        color_map = None
+    # Colours — use each word as its own group when no groups are defined
+    if groups is None:
+        groups = words
+    colors, color_map = _assign_colors(groups)
 
     # Plot
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
