@@ -287,6 +287,31 @@ with gr.Blocks(title="Embedding Playground") as demo:
             btn.click(word_explorer, inputs=[word_input, model_choice],
                       outputs=[vec_output, neighbors_output])
 
+            gr.Markdown("""
+---
+### What am I looking at?
+
+**The vector** is a list of numbers — the word's "address" in a high-dimensional space of meaning.
+The model learned these numbers by reading billions of words and noticing which words tend to appear together.
+Words used in similar contexts end up with similar vectors — that's the core idea behind word embeddings.
+
+**Why only 10 numbers?**
+The full vector has many more dimensions — **GloVe stores 100 numbers per word**, while
+**Sentence Transformers stores 384**. Showing all of them would just be a wall of digits.
+The first 10 give you a feel for what a vector looks like; no single number has an obvious human-readable meaning.
+
+**What do the numbers actually mean?**
+Each dimension loosely captures some latent feature of language (context, topic, grammar role, etc.),
+but the dimensions are not individually labelled. What matters is the *overall pattern*:
+two words with similar vectors are semantically close — you can see this in the "Closest words" output.
+
+**Why do the closest words make sense?**
+The model computes the cosine similarity between the query vector and every word in its vocabulary,
+then returns the top matches. Words that appear in similar sentences — like *doctor*, *nurse*, *physician* —
+end up near each other in vector space.
+""")
+
+
         # --- TAB 2 ---
         with gr.Tab("Analogies"):
             gr.Markdown("### A is to B as C is to ?")
