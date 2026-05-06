@@ -5,8 +5,8 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import gensim.downloader as api
 
 # Load both models at startup
@@ -103,7 +103,6 @@ WORD_PRESETS = {
     "doctor":  "doctor",
     "dharma":  "dharma",
     "cricket": "cricket",
-    "Custom":  None,
 }
 
 ANALOGY_PRESETS = {
@@ -111,7 +110,6 @@ ANALOGY_PRESETS = {
     "Gender  (man : king :: woman : ?)":                   ("man",    "king",   "woman"),
     "Institutions  (school : teacher :: hospital : ?)":    ("school", "teacher","hospital"),
     "Nature  (day : sun :: night : ?)":                    ("day",    "sun",    "night"),
-    "Custom": None,
 }
 
 SENTENCE_PRESETS = {
@@ -119,7 +117,6 @@ SENTENCE_PRESETS = {
     "Negation — tricky for GloVe":   ("I am happy",             "I am not happy"),
     "Same word, different meaning":  ("The bat flew at night",  "He swung the bat"),
     "Unrelated":                     ("The train is very fast", "My grandmother makes great chai"),
-    "Custom": None,
 }
 
 
@@ -170,28 +167,12 @@ def _auto_cluster(vecs):
 def _assign_colors(groups):
     """Map unique group names to distinct colours."""
     unique = list(dict.fromkeys(groups))  # preserve order, deduplicate
-    palette = cm.get_cmap("tab10", len(unique))
-    color_map = {g: palette(i) for i, g in enumerate(unique)}
-    return [color_map[g] for g in groups], color_map
-
-
-def _scatter(ax, coords, words, colors, title):
-    ax.scatter(coords[:, 0], coords[:, 1], c=colors, s=80, zorder=2)
-    for i, word in enumerate(words):
-        ax.annotate(word, (coords[i, 0], coords[i, 1]),
-                    textcoords="offset points", xytext=(5, 5), fontsize=9)
-    ax.set_title(title)
-    ax.axhline(0, color="lightgrey", linewidth=0.5)
-    ax.axvline(0, color="lightgrey", linewidth=0.5)
-
-
-def _make_legend(ax, color_map):
-    handles = [
-        plt.Line2D([0], [0], marker="o", color="w",
-                   markerfacecolor=color, markersize=8, label=group)
-        for group, color in color_map.items()
+    palette = [
+        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
     ]
-    ax.legend(handles=handles, loc="best", fontsize=8)
+    color_map = {g: palette[i % len(palette)] for i, g in enumerate(unique)}
+    return [color_map[g] for g in groups], color_map
 
 
 def visualize(words_text, model_choice, selected_set):
@@ -213,9 +194,11 @@ def visualize(words_text, model_choice, selected_set):
             skipped = [w for w in words if w not in glove]
 
         if len(valid) < 2:
-            fig, ax = plt.subplots()
-            ax.text(0.5, 0.5, "Not enough words found in GloVe vocabulary.\nTry switching to Sentence Transformers.",
-                    ha="center", va="center", transform=ax.transAxes)
+            fig = go.Figure()
+            fig.add_annotation(
+                text="Not enough words found in GloVe vocabulary.<br>Try switching to Sentence Transformers.",
+                xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False, font=dict(size=14)
+            )
             return fig
 
         words = [v[0] for v in valid]
@@ -233,21 +216,48 @@ def visualize(words_text, model_choice, selected_set):
     # Colours — auto-cluster custom words; use predefined groups for presets
     if groups is None:
         groups = _auto_cluster(np.array(vecs))
-    colors, color_map = _assign_colors(groups)
+    _, color_map = _assign_colors(groups)
 
-    # Plot
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
-    _scatter(ax1, pca_2d, words, colors, title=f"PCA  ({model_choice})")
-    _scatter(ax2, tsne_2d, words, colors, title=f"t-SNE  ({model_choice})")
+    # Build Plotly subplots
+    fig = make_subplots(rows=1, cols=2,
+                        subplot_titles=[f"PCA  ({model_choice})", f"t-SNE  ({model_choice})"])
 
-    if color_map:
-        _make_legend(ax2, color_map)
+    unique_groups = list(dict.fromkeys(groups))
+    for grp in unique_groups:
+        indices = [j for j, g in enumerate(groups) if g == grp]
+        color = color_map[grp]
+
+        fig.add_trace(go.Scatter(
+            x=pca_2d[indices, 0], y=pca_2d[indices, 1],
+            mode="markers+text",
+            text=[words[j] for j in indices],
+            textposition="top center",
+            marker=dict(color=color, size=9),
+            name=grp,
+            legendgroup=grp,
+            showlegend=True,
+        ), row=1, col=1)
+
+        fig.add_trace(go.Scatter(
+            x=tsne_2d[indices, 0], y=tsne_2d[indices, 1],
+            mode="markers+text",
+            text=[words[j] for j in indices],
+            textposition="top center",
+            marker=dict(color=color, size=9),
+            name=grp,
+            legendgroup=grp,
+            showlegend=False,
+        ), row=1, col=2)
+
+    fig.update_layout(height=520, margin=dict(t=60, b=40))
 
     if skipped:
-        fig.text(0.5, 0.01, f"Skipped (not in GloVe): {', '.join(skipped)}",
-                 ha="center", fontsize=8, color="grey")
+        fig.add_annotation(
+            text=f"Skipped (not in GloVe): {', '.join(skipped)}",
+            xref="paper", yref="paper", x=0.5, y=-0.05,
+            showarrow=False, font=dict(size=10, color="grey")
+        )
 
-    fig.tight_layout()
     return fig
 
 
@@ -271,18 +281,25 @@ with gr.Blocks(title="Embedding Playground") as demo:
         # --- TAB 1 ---
         with gr.Tab("Word Explorer"):
             gr.Markdown("Enter a word to see its vector and closest neighbours.")
+            word_mode = gr.Radio(["Pre-set", "Custom"], value="Pre-set", label="Input mode")
             word_preset = gr.Dropdown(
                 choices=list(WORD_PRESETS.keys()), value="tiger",
-                label="Try a preset word, or choose Custom to type your own"
+                label="Preset word"
             )
-            word_input = gr.Textbox(label="Enter a word", value="tiger")
+            word_input = gr.Textbox(label="Custom word", value="tiger", interactive=False)
             vec_output = gr.Textbox(label="Vector (first 10 dims)")
             neighbors_output = gr.Textbox(label="Closest words")
             btn = gr.Button("Explore", variant="primary")
 
             def fill_word(preset):
-                return WORD_PRESETS[preset] if preset != "Custom" else gr.update()
+                return WORD_PRESETS[preset]
 
+            def toggle_word_mode(mode):
+                if mode == "Pre-set":
+                    return gr.update(interactive=True), gr.update(interactive=False)
+                return gr.update(interactive=False), gr.update(interactive=True)
+
+            word_mode.change(toggle_word_mode, inputs=word_mode, outputs=[word_preset, word_input])
             word_preset.change(fill_word, inputs=word_preset, outputs=word_input)
             btn.click(word_explorer, inputs=[word_input, model_choice],
                       outputs=[vec_output, neighbors_output])
@@ -316,25 +333,30 @@ end up near each other in vector space.
         with gr.Tab("Analogies"):
             gr.Markdown("### A is to B as C is to ?")
             gr.Markdown("Vector arithmetic: **B − A + C** → find the closest word")
+            analogy_mode = gr.Radio(["Pre-set", "Custom"], value="Pre-set", label="Input mode")
             analogy_preset = gr.Dropdown(
                 choices=list(ANALOGY_PRESETS.keys()),
                 value=list(ANALOGY_PRESETS.keys())[0],
-                label="Try a preset, or choose Custom to type your own"
+                label="Preset analogy"
             )
             _default_a, _default_b, _default_c = ANALOGY_PRESETS[list(ANALOGY_PRESETS.keys())[0]]
-            a_in = gr.Textbox(label="A (starting point)", value=_default_a)
-            b_in = gr.Textbox(label="B (related to A)", value=_default_b)
-            c_in = gr.Textbox(label="C (new starting point)", value=_default_c)
+            a_in = gr.Textbox(label="A (starting point)", value=_default_a, interactive=False)
+            b_in = gr.Textbox(label="B (related to A)", value=_default_b, interactive=False)
+            c_in = gr.Textbox(label="C (new starting point)", value=_default_c, interactive=False)
             analogy_vec = gr.Textbox(label="Result vector (first 10 dims)")
             analogy_out = gr.Textbox(label="Closest words")
             btn2 = gr.Button("Solve Analogy", variant="primary")
 
             def fill_analogy(preset):
-                if preset == "Custom":
-                    return gr.update(), gr.update(), gr.update()
                 a, b, c = ANALOGY_PRESETS[preset]
                 return a, b, c
 
+            def toggle_analogy_mode(mode):
+                if mode == "Pre-set":
+                    return gr.update(interactive=True), gr.update(interactive=False), gr.update(interactive=False), gr.update(interactive=False)
+                return gr.update(interactive=False), gr.update(interactive=True), gr.update(interactive=True), gr.update(interactive=True)
+
+            analogy_mode.change(toggle_analogy_mode, inputs=analogy_mode, outputs=[analogy_preset, a_in, b_in, c_in])
             analogy_preset.change(fill_analogy, inputs=analogy_preset, outputs=[a_in, b_in, c_in])
             btn2.click(analogy, inputs=[a_in, b_in, c_in, model_choice],
                        outputs=[analogy_vec, analogy_out])
@@ -342,23 +364,28 @@ end up near each other in vector space.
         # --- TAB 3 ---
         with gr.Tab("Sentence Similarity"):
             gr.Markdown("Compare two sentences. Score ranges from 0 (unrelated) to 1 (identical meaning).")
+            sent_mode = gr.Radio(["Pre-set", "Custom"], value="Pre-set", label="Input mode")
             sent_preset = gr.Dropdown(
                 choices=list(SENTENCE_PRESETS.keys()),
                 value="Similar meaning",
-                label="Try a preset pair, or choose Custom to type your own"
+                label="Preset sentence pair"
             )
             _default_s1, _default_s2 = SENTENCE_PRESETS["Similar meaning"]
-            s1 = gr.Textbox(label="Sentence 1", value=_default_s1)
-            s2 = gr.Textbox(label="Sentence 2", value=_default_s2)
+            s1 = gr.Textbox(label="Sentence 1", value=_default_s1, interactive=False)
+            s2 = gr.Textbox(label="Sentence 2", value=_default_s2, interactive=False)
             sim_output = gr.Textbox(label="Similarity")
             btn3 = gr.Button("Compare", variant="primary")
 
             def fill_sentences(preset):
-                if preset == "Custom":
-                    return gr.update(), gr.update()
                 s1v, s2v = SENTENCE_PRESETS[preset]
                 return s1v, s2v
 
+            def toggle_sent_mode(mode):
+                if mode == "Pre-set":
+                    return gr.update(interactive=True), gr.update(interactive=False), gr.update(interactive=False)
+                return gr.update(interactive=False), gr.update(interactive=True), gr.update(interactive=True)
+
+            sent_mode.change(toggle_sent_mode, inputs=sent_mode, outputs=[sent_preset, s1, s2])
             sent_preset.change(fill_sentences, inputs=sent_preset, outputs=[s1, s2])
             btn3.click(sentence_similarity, inputs=[s1, s2, model_choice],
                        outputs=sim_output)
@@ -370,23 +397,26 @@ end up near each other in vector space.
                 "**PCA**: distances between clusters are meaningful. "
                 "**t-SNE**: clusters are visually clearer, but distances *between* clusters are not meaningful."
             )
+            viz_mode = gr.Radio(["Pre-set", "Custom"], value="Pre-set", label="Input mode")
             set_dropdown = gr.Dropdown(
                 choices=list(WORD_SETS.keys()),
                 value="Semantic clusters",
-                label="Word set — select one option from the dropdown, then press Plot"
+                label="Word set"
             )
             custom_words = gr.Textbox(
-                label="Custom words (comma separated — only used when 'Custom' is selected above)",
-                placeholder="e.g. moon, star, sun, cloud, rain"
+                label="Custom words (comma separated)",
+                placeholder="e.g. moon, star, sun, cloud, rain",
+                interactive=False
             )
             btn4 = gr.Button("Plot", variant="primary")
             plot_output = gr.Plot()
 
-            set_dropdown.change(
-                fn=lambda s: "" if s != "Custom" else gr.update(),
-                inputs=set_dropdown,
-                outputs=custom_words
-            )
+            def toggle_viz_mode(mode):
+                if mode == "Pre-set":
+                    return gr.update(interactive=True), gr.update(interactive=False)
+                return gr.update(interactive=False, value="Custom"), gr.update(interactive=True)
+
+            viz_mode.change(toggle_viz_mode, inputs=viz_mode, outputs=[set_dropdown, custom_words])
 
             btn4.click(visualize, inputs=[custom_words, model_choice, set_dropdown],
                        outputs=plot_output)

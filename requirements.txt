@@ -1,5 +1,5 @@
 gradio
 sentence-transformers
 scikit-learn
-matplotlib
+plotly
 gensim
