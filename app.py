@@ -281,12 +281,19 @@ with gr.Blocks(title="Embedding Playground") as demo:
         # --- TAB 1 ---
         with gr.Tab("Word Explorer"):
             gr.Markdown("Enter a word to see its vector and closest neighbours.")
-            word_mode = gr.Radio(["Pre-set", "Custom"], value="Pre-set", label="Input mode")
+            gr.Markdown("""
+**Try these Indian words** — copy any one word into the box below and hit Explore:
+
+ratnam · kamal · modi · nehru · gandhi · sholay · chai · adda · bilkul · yaar · jugaad · desi · arre · timepass · biryani · dosa · lassi · namaste · dharma · karma · cricket · monsoon · rickshaw · mumbai · delhi · bollywood · masala · jugnu · tapori · bakwaas · jadoo · zindagi · azaadi · shaayar · filmi · chutzpah · nawab · zamindar · memsaab · babu · paisa
+
+*(Note: each entry above is a single word. "Cutting chai" and "adda" work best with Sentence Transformers since GloVe may not have them in its vocabulary.)*
+""")
+            word_mode = gr.Radio(["Pre-set", "Custom"], value="Custom", label="Input mode")
             word_preset = gr.Dropdown(
                 choices=list(WORD_PRESETS.keys()), value="tiger",
-                label="Preset word"
+                label="Preset word", interactive=False
             )
-            word_input = gr.Textbox(label="Custom word", value="tiger", interactive=False)
+            word_input = gr.Textbox(label="Custom word", value="ratnam", interactive=True)
             vec_output = gr.Textbox(label="Vector (first 10 dims)")
             neighbors_output = gr.Textbox(label="Closest words")
             btn = gr.Button("Explore", variant="primary")
